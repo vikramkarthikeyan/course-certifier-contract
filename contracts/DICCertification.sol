@@ -4,160 +4,203 @@ pragma solidity >=0.4.22 <0.6.0;
 // Reference: https://catalog.buffalo.edu/academicprograms/data-intensive_computing_cert_requirements.html
     
 // Prerequisites:
-// 1. CSE 115 - Intro to CS 1
-// 2. CSE 116 - Intro to CS 2
+// 1. CSE 115 - Intro to CS 1 : 4544
+// 2. CSE 116 - Intro to CS 2 : 4545
     
 // Required Courses:
-// 1. CSE 250 - Data Structures and algorithms (or) equivalent
-// 2. CSE 486 - Distributed Systems
-// 3. CSE 487 - Data Intensive Computing
-// 4. Any 300 or 400 level course with data intensive content in the major area of the student
+// 1. CSE 250 - Data Structures and algorithms : 4555
+// 2. CSE 486 - Distributed Systems : 17770
+// 3. CSE 487 - Data Intensive Computing : 4875
+// 4. Any 300 or 400 level course with data intensive content in the major area of the student : Admin has to verify
     
 // Required Projects:
-// Capstone project in the major area of the student.
+// Capstone project in the major area of the student : Admin has to verify
 
-// Total credit hours required: 23
 // GPA: greater than 2.5 in the required and elective courses above
 
 contract DICCertification {
-    
-    uint MINIMUM_GPA_REQUIRED = 250;
-    
-    // Pre-requisite courses
-    string CSE_115 = "CSE115";
-    string CSE_116 = "CSE116";
-    
-    // Required courses
-    string CSE_250 = "CSE250";
-    string CSE_486 = "CSE486";
-    string CSE_487 = "CSE487";
-    
-    // Only the admin should have access to add user course information
-    address owner;
     
     struct Course {
         uint gpa;
         bool exists;
     }
 
-    // Mappings
-    // PersonNumber:Course:GPA Mapping
-    mapping(string => mapping(string => Course)) public computerScienceCourses;
-    mapping(string => mapping(string => Course)) public otherDepartmentCourses;
-    
-    // Modifiers
-    modifier onlyBy(address _account) {
-        require(
-            msg.sender == _account,
-            "Sender not authorized."
-        );
-        _;
-    }
+    uint constant private MINIMUM_GPA_REQUIRED = 250;
+    uint[] private PRE_REQUISITE_COURSES = [4544, 4545];
+    uint[] private REQUIRED_COURSES = [4555, 17770, 4875];
 
-    modifier taken115(string memory personNumber) {
+    address private admin;
+    
+    // Person Number -> Program Code -> {GPA, exists} mapping
+    mapping(uint => mapping(uint => Course)) private computerScienceCourses;
+    mapping(uint => mapping(uint => Course)) private otherDepartmentCourses;
+    
+    // Person Number -> Boolean mapping
+    mapping(uint => bool) private capstoneProjectVerified;
+    mapping(uint => bool) private domainRequirementVerified;
+    
+    // Modifiers 
+    modifier onlyAdmin() {
         require(
-            computerScienceCourses[personNumber][CSE_115].exists,
-            "The student has not taken CSE115"
+            admin == msg.sender,
+            "User not authorized."
         );
         _;
     }
     
-    modifier taken116(string memory personNumber) {
+    modifier validGPA(uint GPA) {
         require(
-            computerScienceCourses[personNumber][CSE_116].exists,
-            "The student has not taken CSE116"
+            GPA <= 400,
+            "GPA should be 0 - 400 (Ex: Convert 3.98 to 398)"
         );
         _;
     }
     
-    modifier taken250(string memory personNumber) {
+    modifier validPersonNumber(uint personNumber) {
         require(
-            computerScienceCourses[personNumber][CSE_250].exists,
-            "The student has not taken CSE250"
+            personNumber > 0,
+            "Person number cannot be 0"
         );
         _;
     }
     
-    modifier taken486(string memory personNumber) {
+    modifier validProgramCode(uint programCode) {
         require(
-            computerScienceCourses[personNumber][CSE_486].exists,
-            "The student has not taken CSE486"
+            programCode >= 1 && programCode <= 999999,
+            "Program code should be 1-999999"
         );
         _;
     }
     
-    modifier taken487(string memory personNumber) {
-        require(
-            computerScienceCourses[personNumber][CSE_487].exists,
-            "The student has not taken CSE487"
-        );
-        _;
-    }
-
     // Events
-    event courseAdded(string personNumber, string courseName);
-    event preRequisiteSatisified(string personNumber);
-    event requiredCoursesSatisfied(string personNumber);
-    event GPARequirementSatisfied(string personNumber, bool satisfied);
-    event projectRequirementSatisfied(string personNumber);
-    event eligibleForCertification(string personNumber);
+    event courseAdded(uint personNumber, uint courseName);
     
-    // Constructors
+    event preRequisiteSatisified(uint personNumber);
+    event preRequisiteNotSatisified(uint personNumber, uint programCode);
+    
+    event requiredCoursesSatisfied(uint personNumber);
+    event requiredCoursesNotSatisfied(uint personNumber, uint programCode);
+    
+    event GPARequirementSatisfied(uint personNumber);
+    event GPARequirementNotSatisfied(uint personNumber);
+    
+    event projectRequirementSatisfied(uint personNumber);
+    event projectRequirementNotSatisfied(uint personNumber);
+    
+    event domainRequirementSatisfied(uint personNumber);
+    event domainRequirementNotSatisfied(uint personNumber);
+    
     constructor() public {
-        owner = msg.sender;
+        admin = msg.sender;
     }
     
-    // Public Functions
-    function changeOwner(address newOwner)
-    public onlyBy(owner) {
-        owner = newOwner;
+    function addCSCourse(uint personNumber, uint programCode, uint courseGPA) public 
+            validPersonNumber(personNumber) validProgramCode(programCode) validGPA(courseGPA) {
+        computerScienceCourses[personNumber][programCode].gpa = courseGPA;
+        computerScienceCourses[personNumber][programCode].exists = true;
+        emit courseAdded(personNumber, programCode);
     }
     
-    function addCSCourse(string memory personNumber, string memory courseName, uint courseGPA)
-    public onlyBy(owner) {
-        computerScienceCourses[personNumber][courseName].gpa = courseGPA;
-        computerScienceCourses[personNumber][courseName].exists = true;
-        emit courseAdded(personNumber, courseName);
+    function addNonCSCourse(uint personNumber, uint programCode, uint courseGPA) public 
+            validPersonNumber(personNumber) validProgramCode(programCode) validGPA(courseGPA) {
+        otherDepartmentCourses[personNumber][programCode].gpa = courseGPA;
+        otherDepartmentCourses[personNumber][programCode].exists = true;
+        emit courseAdded(personNumber, programCode);
     }
     
-    function addNonCSCourse(string memory personNumber, string memory courseName, uint courseGPA) 
-    public onlyBy(owner) {
-        otherDepartmentCourses[personNumber][courseName].gpa = courseGPA;
-        otherDepartmentCourses[personNumber][courseName].exists = true;
-        emit courseAdded(personNumber, courseName);
+    function verifyCapstoneProject(uint personNumber) public onlyAdmin() validPersonNumber(personNumber) {
+        capstoneProjectVerified[personNumber] = true;
     }
     
-    function checkEligibility(string memory personNumber)
-    public returns(bool) {
-        return checkPreRequisites(personNumber) && checkRequiredCourses(personNumber) 
-        && checkGPARequirement(personNumber);
+    function verifyDomainRequirement(uint personNumber) public onlyAdmin() validPersonNumber(personNumber) {
+        domainRequirementVerified[personNumber] = true;
+    }
+    
+    function checkEligibility(uint personNumber) public validPersonNumber(personNumber) returns(bool) {
+        bool preRequisiteDone = checkPreRequisites(personNumber);
+        bool requiredDone = checkRequiredCourses(personNumber);
+        bool GPASatisfied = checkGPARequirement(personNumber);
+        bool projectSatisfied = checkCapstoneProjectRequirement(personNumber);
+        bool domainSatisfied = checkDomainRequirement(personNumber);
+        
+        return preRequisiteDone && requiredDone && GPASatisfied && projectSatisfied && domainSatisfied;
     }
     
     // Private functions
-    function checkPreRequisites(string memory personNumber)
-    private taken115(personNumber) taken116(personNumber) returns(bool) {
-        emit preRequisiteSatisified(personNumber);
-        return true;
+    
+    function checkPreRequisites(uint personNumber) private returns(bool) {
+        bool requirementSatisfied = true;
+        
+        for (uint i=0; i<PRE_REQUISITE_COURSES.length; i++) {
+            if(!computerScienceCourses[personNumber][PRE_REQUISITE_COURSES[i]].exists) {
+                requirementSatisfied = false;
+                emit preRequisiteNotSatisified(personNumber, PRE_REQUISITE_COURSES[i]);
+            }
+        }
+        
+        if(requirementSatisfied) {
+            emit preRequisiteSatisified(personNumber);
+        }
+        
+        return requirementSatisfied;
     }
     
-    function checkRequiredCourses(string memory personNumber)
-    private taken250(personNumber) taken486(personNumber) taken487(personNumber) returns(bool) {
-        emit requiredCoursesSatisfied(personNumber);
-        return true;
+    function checkRequiredCourses(uint personNumber) private returns(bool) {
+        bool requirementSatisfied = true;
+        
+        for (uint i=0; i<REQUIRED_COURSES.length; i++) {
+            if(!computerScienceCourses[personNumber][REQUIRED_COURSES[i]].exists) {
+                requirementSatisfied = false;
+                emit requiredCoursesNotSatisfied(personNumber, REQUIRED_COURSES[i]);
+            }
+        }
+        
+        if(requirementSatisfied) {
+            emit requiredCoursesSatisfied(personNumber);
+        }
+        
+        return requirementSatisfied;
     }
     
-    function checkGPARequirement(string memory personNumber)
-    private returns(bool) {
+    function checkGPARequirement(uint personNumber) private returns(bool) {
         uint sum = 0;
+        uint totalCourses = PRE_REQUISITE_COURSES.length + REQUIRED_COURSES.length;
+        bool result = false;
         
-        sum += computerScienceCourses[personNumber][CSE_115].gpa;
-        sum += computerScienceCourses[personNumber][CSE_116].gpa;
-        sum += computerScienceCourses[personNumber][CSE_250].gpa;
-        sum += computerScienceCourses[personNumber][CSE_486].gpa;
-        sum += computerScienceCourses[personNumber][CSE_487].gpa;
+        for (uint i=0; i<PRE_REQUISITE_COURSES.length; i++) {
+          sum += computerScienceCourses[personNumber][PRE_REQUISITE_COURSES[i]].gpa;
+        }
         
-        bool satisfied = (sum / 5) >= MINIMUM_GPA_REQUIRED;
-        emit GPARequirementSatisfied(personNumber, satisfied);
-        return satisfied;
+        for (uint i=0; i<REQUIRED_COURSES.length; i++) {
+          sum += computerScienceCourses[personNumber][REQUIRED_COURSES[i]].gpa;
+        }
+        
+        if((sum / totalCourses) >= MINIMUM_GPA_REQUIRED) {
+            result = true;
+            emit GPARequirementSatisfied(personNumber);
+        } else {
+            emit GPARequirementNotSatisfied(personNumber);
+        }
+        
+        return result;
     }
+    
+    function checkCapstoneProjectRequirement(uint personNumber) private returns(bool) {
+        if(capstoneProjectVerified[personNumber]) {
+            emit projectRequirementSatisfied(personNumber);
+        } else {
+            emit projectRequirementNotSatisfied(personNumber);
+        }
+        return capstoneProjectVerified[personNumber];
+    }
+    
+    function checkDomainRequirement(uint personNumber) private returns(bool) {
+        if(domainRequirementVerified[personNumber]) {
+            emit domainRequirementSatisfied(personNumber);
+        } else {
+            emit domainRequirementNotSatisfied(personNumber);
+        }
+        return domainRequirementVerified[personNumber];
+    }
+    
 }
