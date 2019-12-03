@@ -11,10 +11,14 @@ pragma solidity >=0.4.22 <0.6.0;
 // 1. CSE 250 - Data Structures and algorithms : 4555
 // 2. CSE 486 - Distributed Systems : 17770
 // 3. CSE 487 - Data Intensive Computing : 4875
-// 4. Any 300 or 400 level course with data intensive content in the major area of the student : Admin has to verify
+
+// Domain Requirement:
+// 4. Any 300 or 400 level course with data intensive content in the major area of the student
+// Has a list of sufficient courses. If not available, can be verified by admin.
     
 // Required Projects:
-// Capstone project in the major area of the student : Admin has to verify
+// Capstone project in the major area of the student
+// CSE 498 or CSE 499 is sufficient. If not available, can be verified by admin
 
 // GPA: greater than 2.5 in the required and elective courses above
 
@@ -28,6 +32,7 @@ contract DICCertification {
     uint constant private MINIMUM_GPA_REQUIRED = 250;
     uint[] private PRE_REQUISITE_COURSES = [4544, 4545];
     uint[] private REQUIRED_COURSES = [4555, 17770, 4875];
+    uint[] private CSE_DOMAIN_COURSES = [302012, 17728, 300104, 456, 301978, 4870, 17764, 17765, 301158, 302011, 17768];
 
     address private admin;
     
@@ -99,6 +104,12 @@ contract DICCertification {
         computerScienceCourses[personNumber][programCode].gpa = courseGPA;
         computerScienceCourses[personNumber][programCode].exists = true;
         emit courseAdded(personNumber, programCode);
+        
+        // Verify if course satisfies project requirement
+        verifyCourseForProjectRequirement(personNumber, programCode);
+        
+        // Verify if course satisfies domain requirement
+        verifyCourseForDomainRequirement(personNumber, programCode);
     }
     
     function addNonCSCourse(uint personNumber, uint programCode, uint courseGPA) public 
@@ -201,6 +212,20 @@ contract DICCertification {
             emit domainRequirementNotSatisfied(personNumber);
         }
         return domainRequirementVerified[personNumber];
+    }
+    
+    function verifyCourseForProjectRequirement(uint personNumber, uint programCode) private {
+        if(programCode == 498 || programCode == 499) {
+            capstoneProjectVerified[personNumber] = true;
+        }
+    }
+    
+    function verifyCourseForDomainRequirement(uint personNumber, uint programCode) private {
+        for (uint i=0; i<CSE_DOMAIN_COURSES.length; i++) {
+          if(CSE_DOMAIN_COURSES[i] == programCode) {
+              domainRequirementVerified[personNumber] = true;
+          }
+        }
     }
     
 }
